@@ -1,6 +1,6 @@
 use thiserror::Error;
 use std::fmt::Display;
-use alloc::fmt;
+use std::fmt;
 
 pub type Result<T> = std::result::Result<T, Error>;
 

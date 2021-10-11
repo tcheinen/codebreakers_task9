@@ -1,7 +1,5 @@
 #![feature(arbitrary_enum_discriminant)]
-extern crate serde;
-extern crate alloc;
-extern crate nom;
+
 
 mod protocol;
 mod error;
@@ -14,6 +12,4 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-
 }

@@ -1,12 +1,13 @@
 use hex_literal::hex;
 use serde::{Deserialize, Serialize};
+use enum_primitive_derive::Primitive;
 
 pub trait Protocol {
     fn to_proto_bytes(self) -> Vec<u8>;
 }
 
 #[repr(u32)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Magic {
     Start = 0x19B0A81D,
     End = 0xEDA9F5CE,
@@ -19,7 +20,7 @@ impl Protocol for Magic {
 }
 
 #[repr(u16)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Param {
     Cmd(Command) = 0x4D00,
     Uuid([u8; 16]) = 0x4D08,
@@ -80,7 +81,7 @@ impl Protocol for Param {
 }
 
 #[repr(u16)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Command {
     Init = 0x0002,
     GetSessionFolder = 0x0003, // used in claris, seems to prompt the server to give you a temp folder for your UUID
@@ -119,7 +120,7 @@ impl Protocol for Command {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Message {
     data: Vec<u8>,
 }
@@ -158,7 +159,7 @@ impl Protocol for Message {
 
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Block {
     Magic(Magic),
     Param(Param),
