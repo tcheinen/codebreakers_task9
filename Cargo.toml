@@ -1,0 +1,15 @@
+[package]
+name = "codebreakers_task9"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = { path = "./bincode" }
+hex-literal = "0.3.3"
+thiserror = "1.0.30"
+assert_hex = "0.2.2"
+nom = "7.0.0"
