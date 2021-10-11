@@ -79,7 +79,7 @@ fn match_param_code(input: &[u8]) -> IResult<&[u8], Block> {
     ))
 }
 
-fn parse(input: &[u8]) -> IResult<&[u8], Vec<Block>> {
+pub fn parse(input: &[u8]) -> IResult<&[u8], Vec<Block>> {
     let mut output = Vec::new();
     let (input, _) = tag(Magic::Start.to_proto_bytes().as_slice())(input)?;
     output.push(Block::Magic(Magic::Start));
