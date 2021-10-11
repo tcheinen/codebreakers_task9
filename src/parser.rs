@@ -8,7 +8,9 @@ use nom::{
 use crate::protocol::*;
 use byteorder::{BigEndian, ReadBytesExt};
 use hex_literal::hex;
+use nom::branch::alt;
 use nom::bytes::complete::take;
+use nom::multi::many1;
 use num_traits::{FromPrimitive, ToPrimitive};
 
 fn match_end_magic(input: &[u8]) -> IResult<&[u8], Block> {
@@ -81,6 +83,18 @@ fn parse(input: &[u8]) -> IResult<&[u8], Vec<Block>> {
     let mut output = Vec::new();
     let (input, _) = tag(Magic::Start.to_proto_bytes().as_slice())(input)?;
     output.push(Block::Magic(Magic::Start));
+
+    let (input, params) = many1(alt((
+        match_param_command,
+        match_param_dirname,
+        match_param_filename,
+        match_param_uuid,
+        match_param_code,
+        match_param_contents,
+        match_param_more,
+        match_end_magic
+    )))(input)?;
+    output.extend(params);
     Ok((input, output))
 }
 
@@ -163,6 +177,78 @@ mod tests {
         assert_eq!(
             match_param_code(&hex!("4D28000400000009")).unwrap().1,
             Block::Param(Param::Code(9))
+        );
+    }
+
+    #[test]
+    fn test_parse() {
+        assert_eq!(parse(&hex!("19B0A81DEDA9F5CE")).unwrap().1, vec![
+            Block::Magic(Magic::Start),
+            Block::Magic(Magic::End),
+        ]);
+
+        assert_eq!(
+            parse(&hex!("19B0A81D4D080010FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEDA9F5CE"))
+                .unwrap()
+                .1,
+            vec![
+                Block::Magic(Magic::Start),
+                Block::Param(Param::Uuid(hex!("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"))),
+                Block::Magic(Magic::End),
+            ]
+        );
+
+        assert_eq!(
+            parse(&hex!("19B0A81D4D1400084141414141414100EDA9F5CE"))
+                .unwrap()
+                .1,
+            vec![
+                Block::Magic(Magic::Start),
+                Block::Param(Param::DirName("AAAAAAA".to_string())),
+                Block::Magic(Magic::End),
+            ]
+        );
+
+        assert_eq!(
+            parse(&hex!("19B0A81D4D1C00084141414141414100EDA9F5CE"))
+                .unwrap()
+                .1,
+            vec![
+                Block::Magic(Magic::Start),
+                Block::Param(Param::FileName("AAAAAAA".to_string())),
+                Block::Magic(Magic::End),
+            ]
+        );
+
+        assert_eq!(
+            parse(&hex!("19B0A81D4D2000084141414141414100EDA9F5CE"))
+                .unwrap()
+                .1,
+            vec![
+                Block::Magic(Magic::Start),
+                Block::Param(Param::Contents("AAAAAAA".to_string())),
+                Block::Magic(Magic::End),
+            ]
+        );
+
+        assert_eq!(
+            parse(&hex!("19B0A81D4D2400084141414141414100EDA9F5CE"))
+                .unwrap()
+                .1,
+            vec![
+                Block::Magic(Magic::Start),
+                Block::Param(Param::More("AAAAAAA".to_string())),
+                Block::Magic(Magic::End),
+            ]
+        );
+
+        assert_eq!(
+            parse(&hex!("19B0A81D4D28000400000009EDA9F5CE")).unwrap().1,
+            vec![
+                Block::Magic(Magic::Start),
+                Block::Param(Param::Code(9)),
+                Block::Magic(Magic::End),
+            ]
         );
     }
 }
