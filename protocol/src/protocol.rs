@@ -1,6 +1,6 @@
+use enum_primitive_derive::Primitive;
 use hex_literal::hex;
 use serde::{Deserialize, Serialize};
-use enum_primitive_derive::Primitive;
 
 pub trait Protocol {
     fn to_proto_bytes(self) -> Vec<u8>;
@@ -25,6 +25,7 @@ pub enum Param {
     Cmd(Command) = 0x4D00,
     Uuid([u8; 16]) = 0x4D08,
     DirName(String) = 0x4D14,
+    FolderContents(String) = 0x4D18,
     FileName(String) = 0x4D1C,
     Contents(String) = 0x4D20,
     More(String) = 0x4D24,
@@ -51,6 +52,12 @@ impl Protocol for Param {
                 data.extend(s.bytes());
                 data.push(0);
             }
+            Self::FolderContents(s) => {
+                data.extend(0x4D18_u16.to_be_bytes().into_iter());
+                data.extend(((s.len() + 1) as u16).to_be_bytes());
+                data.extend(s.bytes());
+                data.push(0);
+            }
             Self::FileName(s) => {
                 data.extend(0x4D1c_u16.to_be_bytes().into_iter());
                 data.extend(((s.len() + 1) as u16).to_be_bytes());
@@ -64,9 +71,8 @@ impl Protocol for Param {
             }
             Self::Contents(s) => {
                 data.extend(0x4D20_u16.to_be_bytes().into_iter());
-                data.extend(((s.len() + 1) as u16).to_be_bytes());
+                data.extend(((s.len()) as u16).to_be_bytes());
                 data.extend(s.bytes());
-                data.push(0);
             }
             Self::More(s) => {
                 data.extend(0x4D24_u16.to_be_bytes().into_iter());
@@ -100,7 +106,7 @@ impl Command {
             5 => Self::ReadFile,
             6 => Self::Upload,
             7 => Self::Fin,
-            _ => panic!("lmao dont do that")
+            _ => panic!("lmao dont do that"),
         }
     }
 }
@@ -130,6 +136,16 @@ impl Message {
         Message { data: Vec::new() }
     }
 
+    pub fn from_blocks(blocks: impl IntoIterator<Item = Block>) -> Self {
+        Message {
+            data: blocks
+                .into_iter()
+                .map(|x| x.to_proto_bytes())
+                .flat_map(|x| x.into_iter())
+                .collect(),
+        }
+    }
+
     pub fn make_init(uuid: [u8; 16]) -> Self {
         Message::new()
             .append(Magic::Start)
@@ -155,24 +171,36 @@ impl Protocol for Message {
     }
 }
 
-
-
-
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Block {
     Magic(Magic),
     Param(Param),
-    Command(Command)
+    Command(Command),
 }
 
+impl Protocol for Block {
+    fn to_proto_bytes(self) -> Vec<u8> {
+        match self {
+            Self::Magic(magic) => magic.to_proto_bytes(),
+            Self::Param(magic) => magic.to_proto_bytes(),
+            Self::Command(magic) => magic.to_proto_bytes(),
+        }
+    }
+}
 
+impl Protocol for Vec<Block> {
+    fn to_proto_bytes(self) -> Vec<u8> {
+        self.into_iter()
+            .flat_map(Protocol::to_proto_bytes)
+            .collect()
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parse;
     use assert_hex::assert_eq_hex;
-
     #[test]
     fn magic_works() {
         assert_eq!(&Magic::Start.to_proto_bytes(), &hex!("19B0A81D"));
@@ -206,5 +234,41 @@ mod tests {
             Message::make_init(hex!("c2cd31ed27134010a0dedfc817a341b7")).to_proto_bytes(),
             &hex!("19b0a81d4d00000200024d080010c2cd31ed27134010a0dedfc817a341b7eda9f5ce")
         );
+    }
+
+    #[test]
+    fn test_commutativity() {
+        {
+            let message = hex!("19B0A81DEDA9F5CE");
+            assert_eq!(parse(&message).unwrap().1.to_proto_bytes(), &message);
+        }
+        {
+            let message = hex!("19B0A81D4D080010FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEDA9F5CE");
+            assert_eq!(parse(&message).unwrap().1.to_proto_bytes(), &message);
+        }
+        {
+            let message = hex!("19B0A81D4D1400084141414141414100EDA9F5CE");
+            assert_eq!(parse(&message).unwrap().1.to_proto_bytes(), &message);
+        }
+        {
+            let message = hex!("19B0A81D4D1800084141414141414100EDA9F5CE");
+            assert_eq!(parse(&message).unwrap().1.to_proto_bytes(), &message);
+        }
+        {
+            let message = hex!("19B0A81D4D1C00084141414141414100EDA9F5CE");
+            assert_eq!(parse(&message).unwrap().1.to_proto_bytes(), &message);
+        }
+        {
+            let message = hex!("19B0A81D4D20000741414141414141EDA9F5CE");
+            assert_eq!(parse(&message).unwrap().1.to_proto_bytes(), &message);
+        }
+        {
+            let message = hex!("19B0A81D4D2400084141414141414100EDA9F5CE");
+            assert_eq!(parse(&message).unwrap().1.to_proto_bytes(), &message);
+        }
+        {
+            let message = hex!("19B0A81D4D28000400000009EDA9F5CE");
+            assert_eq!(parse(&message).unwrap().1.to_proto_bytes(), &message);
+        }
     }
 }
