@@ -15,3 +15,5 @@ num-traits = "^0.1"
 byteorder = "1.4.3"
 hex = "0.4"
 protocol = { path = "../protocol"}
+sodiumoxide = "0.2.7"
+ring = "0.16.20"

@@ -33,7 +33,6 @@ fn match_param_string(input: &[u8], param: [u8; 2]) -> IResult<&[u8], Block> {
             hex!("4D14") => Param::DirName(str),
             hex!("4D18") => Param::FolderContents(str),
             hex!("4D1C") => Param::FileName(str),
-            hex!("4D20") => Param::Contents(str),
             hex!("4D24") => Param::More(str),
             _ => panic!("um dont do that lol"),
         }),
@@ -56,9 +55,8 @@ fn match_param_contents(input: &[u8]) -> IResult<&[u8], Block> {
     let (input, _) = tag(hex!("4D20"))(input)?;
     let (input, size) = take(2usize)(input)?; // ALWAYS 2?
     let size = (((size[0] as u16) << 8u16) | size[1] as u16) as usize;
-    let (input, str) = take(size)(input)?;
-    let mut str = String::from_utf8_lossy(&str[..str.len()]).to_string();
-    Ok((input, Block::Param(Param::Contents(str))))
+    let (input, contents) = take(size)(input)?;
+    Ok((input, Block::Param(Param::Contents(contents.to_vec()))))
 }
 
 fn match_param_more(input: &[u8]) -> IResult<&[u8], Block> {
@@ -177,7 +175,7 @@ mod tests {
             match_param_contents(&hex!("4D20000741414141414141"))
                 .unwrap()
                 .1,
-            Block::Param(Param::Contents("AAAAAAA".to_string()))
+            Block::Param(Param::Contents("AAAAAAA".bytes().collect()))
         );
 
         assert_eq!(
@@ -252,7 +250,7 @@ mod tests {
                 .1,
             vec![
                 Block::Magic(Magic::Start),
-                Block::Param(Param::Contents("AAAAAAA".to_string())),
+                Block::Param(Param::Contents("AAAAAAA".bytes().collect())),
                 Block::Magic(Magic::End),
             ]
         );

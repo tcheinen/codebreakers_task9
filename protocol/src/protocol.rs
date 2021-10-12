@@ -1,6 +1,8 @@
+use std::path::Path;
 use enum_primitive_derive::Primitive;
 use hex_literal::hex;
 use serde::{Deserialize, Serialize};
+
 
 pub trait Protocol {
     fn to_proto_bytes(self) -> Vec<u8>;
@@ -27,7 +29,7 @@ pub enum Param {
     DirName(String) = 0x4D14,
     FolderContents(String) = 0x4D18,
     FileName(String) = 0x4D1C,
-    Contents(String) = 0x4D20,
+    Contents(Vec<u8>) = 0x4D20,
     More(String) = 0x4D24,
     Code(u32) = 0x4D28,
 }
@@ -72,7 +74,7 @@ impl Protocol for Param {
             Self::Contents(s) => {
                 data.extend(0x4D20_u16.to_be_bytes().into_iter());
                 data.extend(((s.len()) as u16).to_be_bytes());
-                data.extend(s.bytes());
+                data.extend(s.into_iter());
             }
             Self::More(s) => {
                 data.extend(0x4D24_u16.to_be_bytes().into_iter());
@@ -154,6 +156,28 @@ impl Message {
             .append(Magic::End)
             .build()
     }
+
+    pub fn make_list_dir(uuid: [u8; 16], dir: impl AsRef<Path>) -> Self {
+        Message::new()
+            .append(Magic::Start)
+            .append(Param::Cmd(Command::ListDir))
+            .append(Param::Uuid(uuid))
+            .append(Param::DirName(dir.as_ref().to_string_lossy().to_string()))
+            .append(Magic::End)
+            .build()
+    }
+
+    pub fn make_read_file(uuid: [u8; 16], dir: impl AsRef<Path>, file: impl AsRef<Path>) -> Self {
+        Message::new()
+            .append(Magic::Start)
+            .append(Param::Cmd(Command::ReadFile))
+            .append(Param::Uuid(uuid))
+            .append(Param::DirName(dir.as_ref().to_string_lossy().to_string()))
+            .append(Param::FileName(file.as_ref().to_string_lossy().to_string()))
+            .append(Magic::End)
+            .build()
+    }
+
 
     pub fn append(&mut self, msg: impl Protocol) -> &mut Self {
         self.data.append(&mut msg.to_proto_bytes());
