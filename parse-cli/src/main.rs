@@ -1,5 +1,3 @@
-extern crate protocol;
-
 use protocol::parse;
 use std::io::{stdin, BufRead};
 
